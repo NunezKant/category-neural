@@ -18,7 +18,7 @@ def apply(Fsom, FS, path_to_weights, batch_size=1):
     nbase = [2, n0, 2*n0, 4*n0, 8*n0]
 
     net  = CPnet(nbase, 1, 3, conv_1D = True, style_on = True).to(dev)
-    net.load_state_dict(torch.load(path_to_weights))
+    net.load_state_dict(torch.load(path_to_weights, weights_only=True))
     net.eval()
 
     ff = 8

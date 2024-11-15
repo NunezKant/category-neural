@@ -6,6 +6,8 @@ from src import utils
 import os
 import plotly.graph_objects as go
 from plotly.subplots import make_subplots
+import pandas as pd
+from datetime import datetime, timedelta
 #sns.set_context("notebook")
 
 from matplotlib import rcParams
@@ -355,3 +357,129 @@ def dprime_trial_responses(MouseObject, to_plot: str = 'neurons', layer: int = 1
     ax[0,4].legend(bbox_to_anchor=(1.01, 1), loc='upper left')
     fig.suptitle(f'{l} {region}')
     sns.despine()    
+
+
+def licksraster(MouseObject, ax):
+    import seaborn as sns
+    """
+    Plot the lick data.
+
+    Parameters
+    ----------
+    MouseObject : Mouse object
+        Mouse object containing the data
+    first_lick : bool
+        If True, plot the first lick distribution over trials.
+    fsize : tuple
+        Figure size.
+    lick_counter_lim : tuple
+        Limits for the lick counter.
+
+    Returns
+    -------
+    fig : figure
+        Figure of lick data.
+    """
+    opt_dict = {
+        "rewarded": "tab:green",
+        "non rewarded": "tab:red",
+        "rewarded test": "tab:cyan",
+        "non rewarded test": "tab:orange",
+    }
+    #pct_axis = fig.add_subplot(grid[-2:, 5:])
+    lick = get_lick_df(MouseObject, drop_last_trial=True)
+    n_trials = int(lick.trial.max())
+    isrewarded = MouseObject._timeline['TrialRewardStrct'].flatten()[:n_trials]
+    isnew = MouseObject._timeline['TrialNewTextureStrct'].flatten()[:n_trials]
+    trial_type , counts = utils.get_trial_categories(isrewarded, isnew)
+    for key, value in counts.items():
+        lick.loc[np.where(lick["trial_type"] == key)[0], "Weight"] = value
+    lick = lick[lick["flag"] != 1]
+    lick = lick.iloc[::2]
+    category_number = len(np.unique(trial_type))
+    if category_number == 4:
+        categories = ["rewarded", "non rewarded", "rewarded test", "non rewarded test"]
+    elif category_number == 2:
+        categories = ["rewarded", "non rewarded"]
+        
+
+    for category in categories:
+        position = lick[lick["trial_type"] == category]["distance"]
+        trial = lick[lick["trial_type"] == category]["trial"]
+        if category in ["rewarded", "non rewarded"]:
+            ax.scatter(
+                position,
+                trial,
+                marker="o",
+                label=category,
+                alpha=0.5,
+                c = opt_dict[category],
+                s=5,
+            )
+        elif category == "rewarded test":
+            ax.scatter(
+                position,
+                trial,
+                marker="X",
+                alpha=0.2,
+                label=category,
+                c = opt_dict[category],
+                s=5,
+            )
+        else:
+            ax.scatter(
+                position,
+                trial,
+                marker="X",
+                alpha=0.2,
+                label=category,
+                c = opt_dict[category],
+                s=5,
+            )
+
+    ax.set_xlabel("lick position (cm)")
+    ax.set_ylabel("trial")
+    ax.set_xlim(0, lick["distance"].max() + 10)
+    #init_text = lick["distance"].max() -30
+    i = 0
+    change_dict = {'rewarded': 'train A', 'non rewarded': 'train B', 'rewarded test': 'test A', 'non rewarded test': 'test B'}
+    for category in categories:
+        ax.text(310,320-i,change_dict[category],color=opt_dict[category], size=12)
+        i+=27
+    ax.set_ylim(0, n_trials+30)
+    ax.set_xticks([0, 150, 250, 400])
+    ax.fill_betweenx([0, n_trials+19], [150],[250], color='tab:green', alpha=0.2)
+    ax.vlines(300,0, n_trials+19, color='k', linestyle='--', alpha = 0.3)
+    #add text for reward region
+    ax.text(145, n_trials+30, "reward \n region", color='tab:green', size=12)
+    ax.tick_params(axis='both', which='major')
+    sns.despine()
+
+def get_lick_df(MouseObject, drop_last_trial=True):
+    if "TX" in MouseObject.name:
+        df = pd.DataFrame(MouseObject._timeline["Licks"].T, columns=["trial", "distance","alpha","is_rewarded","time", "flag"])
+    else:
+        df = pd.DataFrame(MouseObject._timeline["Licks"].T, columns=["trial", "distance","alpha","is_rewarded","time", "flag", "istest"])
+    df["datetime"] = pd.to_datetime(
+        df["time"].apply(
+            lambda x: datetime.fromordinal(int(x))
+            + timedelta(days=x % 1)
+            - timedelta(days=366)
+        )
+    )
+    df = df.assign(distance = df["distance"]*10)
+    df = df.assign(date=df["datetime"].dt.date)
+    df = df.assign(hour_min_sec=df["datetime"].dt.time)
+    df = df.assign(seconds_in_session=(df["datetime"] - df["datetime"][0]).dt.total_seconds())
+    if drop_last_trial:
+        n_trials = df.trial.unique()[-2].astype(int)
+        df = df.loc[df.trial != df.trial.max()]
+    else:
+        n_trials = df.trial.unique()[-1].astype(int)
+    isrewarded = MouseObject._timeline['TrialRewardStrct'].flatten()[:n_trials]
+    isnew = MouseObject._timeline['TrialNewTextureStrct'].flatten()[:n_trials]
+    trial_type , _ = utils.get_trial_categories(isrewarded, isnew)
+    for ix, ttype in enumerate(trial_type):
+        df.loc[df.trial == ix+1, "trial_type"] = ttype
+    df.drop(["time","datetime","is_rewarded","alpha"], axis=1, inplace=True)
+    return df

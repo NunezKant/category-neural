@@ -6,7 +6,6 @@ import sys
 from scipy import io
 import pickle
 import tkinter as tk
-from tkinter import filedialog
 sys.path.insert(0, r"C:\Users\labadmin\Documents\suite2p")
 sys.path.insert(0, r"C:\Users\labadmin\Documents\rastermap")
 from sklearn.decomposition import PCA
@@ -16,7 +15,6 @@ from rastermap import mapping
 from scipy import ndimage
 from tqdm import tqdm
 from dataclasses import dataclass
-from dataclasses_json import dataclass_json
 from scipy.stats import zscore 
 import os
 from pathlib import Path
@@ -24,6 +22,7 @@ from scipy.interpolate import interp1d
 import pandas as pd
 from datetime import datetime, timedelta
 from sklearn.decomposition import TruncatedSVD
+from src import udcnv
 
 ##### SUITE2P FUNCTIONS #####
 
@@ -134,7 +133,7 @@ def deconvolve(root, ops):
     return spks, stat, xpos, ypos, iplane
 
 
-def baselining(ops, tlag, F, Fneu):
+def baselining(ops, tlag, F):
     """
     Baseline the neural data before deconvolution
 
@@ -145,17 +144,15 @@ def baselining(ops, tlag, F, Fneu):
     tlag : int
         Time lag for the deconvolution
     F : array
-        Deconvolved fluorescence
-    Fneu : array
-        Neurophil fluorescence
+        Deconvolved fluorescence - neurophil corrected 
     Returns:
     ----------
     F : array
         Baselined deconvolved fluorescence
     """
-    F = preprocess(F, Fneu, ops["win_baseline"], ops["sig_baseline"], ops["fs"])
-    # F = dcnv.preprocess(F, ops['baseline'], ops['win_baseline'], ops['sig_baseline'],
-    #                   ops['fs'], ops['prctile_baseline'])
+    #F = preprocess(F, Fneu, ops["win_baseline"], ops["sig_baseline"], ops["fs"])
+    F = dcnv.preprocess(F, ops['baseline'], ops['win_baseline'], ops['sig_baseline'],
+                       ops['fs'], ops['prctile_baseline'])
     if tlag < 0:
         F[:, 1:] = (1 + tlag) * F[:, 1:] + (-tlag) * F[:, :-1]
     else:
@@ -518,7 +515,7 @@ def get_frametypes(MouseObject, color=True):
     return trial_type_byframe
 
 #### FRAME SELECTOR #####
-def get_frameselector(MouseObject , intertrial_distance = 100, effective_frames = True):
+def get_frameselector(MouseObject, intertrial_distance = 100, effective_frames = True):
     reward_delivery_frame = np.round(
         MouseObject._timestamps["reward_frames"][
             np.isnan(MouseObject._timestamps["reward_frames"]) == False
@@ -806,6 +803,132 @@ class Mouse:
             print("----------------------------------")
             print("Data_var loaded:  into self._data_var")
             print("This variable is used to sync the timeline with the imaging data")
+
+
+    def load_neurons_VG(self, dual_plane=True, Fs=3, return_F = False, return_iscell = False, verbose=False):
+        """
+        Loads the neural data from the database
+
+        Parameters:
+        ----------
+
+        dual_plane : Boolean
+            Dual plane flag indicates whether the data is from the dual plane or not
+        Baseline : Boolean
+            Baseline flag indicates whether the data is preproceded or not
+        verbose : bool
+            If True, prints the loaded info
+        return_F : bool
+            If True, loads the F matrix
+        return_iscell : bool
+            If True, loads the iscell matrix
+        Returns:
+        ----------
+        self : Mouse
+            Returns the Mouse object with the loaded data
+        """
+
+        root = os.path.join(self.data_path, self.name, self.datexp, self.blk)
+        ops = np.load(
+            os.path.join(root, "suite2p", "plane0", "ops.npy"), allow_pickle=True
+        ).item()
+
+        if return_iscell == True:
+            is_cell = np.zeros((0,2))
+            ops["nplanes"] =  20
+        if dual_plane:
+            tlags = np.linspace(0.2, -0.8, ops["nplanes"] // 2 + 1)[:-1]
+            tlags = np.hstack((tlags, tlags))
+            tlags = tlags.flatten()
+        else:
+            tlags = np.linspace(0.2, -0.8, ops["nplanes"] + 1)[:-1]
+        print(f"planes: {tlags.shape[0]}")
+
+        spks = np.zeros((0, ops["nframes"]), np.float32)
+        F_ret = np.zeros((0, ops["nframes"]), np.float32)
+        snr_ret = np.zeros((0,))
+        stat = np.zeros((0,))
+        iplane = np.zeros((0,))
+        xpos, ypos = np.zeros((0,)), np.zeros((0,))
+
+        for n in tqdm(range(ops["nplanes"])):
+            ops = np.load(
+                os.path.join(root, "suite2p", "plane%d" % n, "ops.npy"),
+                allow_pickle=True,
+            ).item()
+
+            stat0 = np.load(
+                os.path.join(root, "suite2p", "plane%d" % n, "stat.npy"),
+                allow_pickle=True,
+            )
+
+            ypos0 = np.array([stat0[n]["med"][0] for n in range(len(stat0))])
+            xpos0 = np.array([stat0[n]["med"][1] for n in range(len(stat0))])
+
+            if "dy" in ops:
+                ypos0 += ops["dy"]
+                xpos0 += ops["dx"]
+
+            F0 = np.load(os.path.join(root, "suite2p", "plane%d" % n, "F.npy"))
+            Fneu = np.load(os.path.join(root, "suite2p", "plane%d" % n, "Fneu.npy"))
+            F0 = F0 - 1*Fneu
+            snr = 1  - .5 * np.var(np.diff(F0, axis=1), axis=1) / np.var(F0, axis=1)
+            F0 = baselining(ops, tlags[n], F0)
+            spks0 = udcnv.apply(F0, Fs, "C:/Users/labadmin/Documents/category-neural/data/sim_right_flex.th", batch_size=1)
+            #spks0 = dcnv.oasis(F0, ops["batch_size"], ops["tau"], ops["fs"])
+            F_ret = np.concatenate((F_ret, F0.astype("float32")), axis=0)
+
+
+            spks0 = spks0.astype("float32")
+            if spks.shape[1] > spks0.shape[0]:
+                spks0 = np.concatenate(
+                    (spks0, np.zeros((spks0.shape[0], spks.shape[1] - spks0.shape[1]))),
+                    axis=1,
+                )
+            if return_iscell:
+                is_cell0 = np.load(
+                    os.path.join(root, "suite2p", "plane%d" % n, "iscell.npy"),
+                    allow_pickle=True,
+                )
+                is_cell = np.concatenate((is_cell, is_cell0), axis=0)
+            snr_ret = np.concatenate((snr_ret, snr.astype("float32")), axis=0)
+            spks = np.concatenate((spks, spks0), axis=0)
+            ypos = np.concatenate((ypos, ypos0), axis=0)
+            xpos = np.concatenate((xpos, xpos0), axis=0)
+            iplane = np.concatenate(
+                (
+                    iplane,
+                    n
+                    * np.ones(
+                        len(stat0),
+                    ),
+                )
+            )
+            stat = np.concatenate((stat, stat0), axis=0)
+        self._spks = spks
+        self._ypos = ypos
+        self._xpos = xpos
+        self._iplane = iplane
+        self._stat = stat
+        self._ops = ops
+        self._snr = snr_ret
+        if return_F == True:
+            self._F = F_ret
+        if return_iscell == True:
+            self._is_cell = is_cell
+        if verbose:
+            print("###### Neurons loaded ######")
+            print(f"Total neurons loaded: {len(spks)}")
+            print("---------------------------")
+            print(
+                f"Spikes created at: self.spks, with shape: {spks.shape} : (neurons, frames)"
+            )
+            print("Neurons plane information created at: self.iplane")
+            print("Neurons positions created at: self.xpos, self.ypos")
+            print("Neurons snr created at: self.snr")
+            print("Suite2p stats created at: self.stat")
+            print("Suite2p options created at: self.ops")
+            print("---------------------------")
 
     def load_neurons(self, dual_plane=True, baseline=True, return_F = False, return_iscell = False, verbose=False):
         """
@@ -1167,29 +1290,29 @@ def load_mouse(name: str, date: str, block: str, data_path: str = "Z:/data/PROC"
                 if 'return_F' in kwargs:
                     if 'dual_plane' in kwargs:
                         if 'return_iscell' in kwargs:
-                            mouse.load_neurons(dual_plane=kwargs['dual_plane'], baseline=True, 
+                            mouse.load_neurons_VG(dual_plane=kwargs['dual_plane'], 
                                                return_F=kwargs['return_F'], return_iscell=kwargs['return_iscell'])
                         else:
-                            mouse.load_neurons(dual_plane=kwargs['dual_plane'], baseline=True, 
+                            mouse.load_neurons_VG(dual_plane=kwargs['dual_plane'],
                                                return_F=kwargs['return_F'])
                     else:
                         if 'return_iscell' in kwargs:
-                            mouse.load_neurons(dual_plane=True, baseline=True, return_F=kwargs['return_F'],
+                            mouse.load_neurons_VG(dual_plane=True, return_F=kwargs['return_F'],
                                                 return_iscell=kwargs['return_iscell'])
                         else:
-                            mouse.load_neurons(dual_plane=True, baseline=True, return_F=kwargs['return_F'])
+                            mouse.load_neurons_VG(dual_plane=True, return_F=kwargs['return_F'])
                 else:
                     if 'dual_plane' in kwargs:
                         if 'return_iscell' in kwargs:
-                            mouse.load_neurons(dual_plane=kwargs['dual_plane'], baseline=True, 
+                            mouse.load_neurons_VG(dual_plane=kwargs['dual_plane'],
                                                return_iscell=kwargs['return_iscell'])
                         else:
-                            mouse.load_neurons(dual_plane=kwargs['dual_plane'], baseline=True)
+                            mouse.load_neurons_VG(dual_plane=kwargs['dual_plane'])
                     else:
                         if 'return_iscell' in kwargs:
-                            mouse.load_neurons(dual_plane=True, baseline=True, return_iscell=kwargs['return_iscell'])
+                            mouse.load_neurons_VG(dual_plane=True, return_iscell=kwargs['return_iscell'])
                         else:
-                            mouse.load_neurons(dual_plane=True, baseline=True)
+                            mouse.load_neurons_VG(dual_plane=True)
         if ('load_retinotopy' in kwargs):
             if kwargs['load_retinotopy'] == True:
                 p = Path(ret_path).glob('**/*')
@@ -1741,3 +1864,14 @@ def filter_neurons(MouseObject, area: str = 'all', plane: int = 1, tsh: float = 
     print(f"NN area: {region.sum()}, NN plane: {p.sum()}, NN area-plane: {area_layer_neurons.sum()}")
     print(f"NN prefering rewarded neurons: {prefer_r.sum()}, NN prefering non-rewarded neurons: {prefer_nr.sum()}")
     return prefer_r, prefer_nr, area_layer_neurons
+
+def get_trials_with_licks(MouseObject, lick_window=(150,250), trialtype: str = 'rewarded'):
+    licksdf = get_lick_df(MouseObject, drop_last_trial=True)
+    trial_no = get_trialno_bytype(MouseObject.frameselector)
+    trial_no = trial_no[trialtype]
+    licks = licksdf.query(f'trial_type == "{trialtype}"')
+    licks = licks[licks['flag']!=1]
+    trials_w_licks = licks.query(f'distance >= {lick_window[0]} and distance < {lick_window[1]}')['trial'].unique().astype(int)
+    trials_w_licks = trials_w_licks - 1
+    trials_wo_licks = trial_no[np.isin(trial_no, trials_w_licks, invert=True)]
+    return trials_w_licks, trials_wo_licks
