@@ -1211,7 +1211,7 @@ def objectify(objdict):
     return mouse
 
 
-def load_mouse(name: str, date: str, block: str, data_path: str = "Z:/data/PROC",  mdl_path: str = "C:/Users/labadmin/Documents/models/mouseobj", ret_path = "D:/retinotopy/aligned_xy", **kwargs):
+def load_mouse(name: str, date: str, block: str, data_path: str = "Z:/data/PROC",  mdl_path: str = "C:/Users/labadmin/Documents/models/mouseobj", ret_path = "D:/retinotopy/aligned_xy/behav", **kwargs):
     """
     Checks if a local copy of the mouse object exists, if not it creates it, if it exists, it asks if you want to load it or create a new one.
     Parameters:
@@ -1757,7 +1757,7 @@ def filterneurons(MouseObject: object, layer: int = 1, trial_type: bool = False,
     print(f"NN prefering rewarded trials: {prefer_r.sum()}, NN prefering non-rewarded trials: {prefer_nr.sum()}")
     return prefer_r, prefer_nr, area_layer_neurons
 
-def compute_dprime(MouseObject, discrimination_region: tuple = (150,250), corridor_length: int = 400, nogray: bool = False):
+def compute_dprime(MouseObject, discrimination_region: tuple = (150,250), corridor_length: int = 400, nogray: bool = False, concatenate: bool = False):
 
     """
     Calculate dprime for a given mouse object
@@ -1784,8 +1784,12 @@ def compute_dprime(MouseObject, discrimination_region: tuple = (150,250), corrid
     # get trial numbers by trial type
     trial_dict = get_trialno_bytype(MouseObject.frameselector)
     # create the "train" trial numbers for rew and nrew trials
-    train_trial_r = trial_dict["rewarded"][::2]
-    train_trial_nr = trial_dict["non rewarded"][::2]
+    if concatenate:
+        train_trial_r = np.concatenate([trial_dict['rewarded'][::2], trial_dict['rewarded test'][::2]])
+        train_trial_nr = np.concatenate([trial_dict['non rewarded'][::2], trial_dict['non rewarded test'][::2]])
+    else:
+        train_trial_r = trial_dict["rewarded"][::2]
+        train_trial_nr = trial_dict["non rewarded"][::2]
     #get the responses from those trials
     if nogray:
         gray_response = MouseObject.interp_spks[:, :, 300:400] # neurons, trials, positions (interp_spks is not zscored)
@@ -1807,9 +1811,9 @@ def compute_dprime(MouseObject, discrimination_region: tuple = (150,250), corrid
     #compute the train dprime
     MouseObject.train_dp = 2 * ((mu1 - mu2) / (std1 + std2))
     MouseObject.train_dp = np.squeeze(MouseObject.train_dp)
-    MouseObject.projected_response = 2 * (MouseObject.interp_spks / (std1 + std2))
+    #MouseObject.projected_response = 2 * (MouseObject.interp_spks / (std1 + std2))
     print("dprime saved in MouseObject.train_dp (neurons) using even trials")
-    print("projected_response saved in MouseObject.projected_response (neurons x trials x positions)")
+    #print("projected_response saved in MouseObject.projected_response (neurons x trials x positions)")
     
 
 def filter_neurons(MouseObject, area: str = 'all', plane: int = 1, tsh: float = 95, dendrites: bool = False):

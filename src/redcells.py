@@ -37,7 +37,8 @@ def tiffs_to_binary(s2p_red):
     ops["nchannels"] = 2
     ops["save_path0"] = str(ops["data_path"][0])
 
-    ops = tiff.tiff_to_binary(ops)
+    #ops = tiff.tiff_to_binary(ops)
+    ops = tiff.mesoscan_to_binary(ops)
     return ops
 
 ### align red/green recording to green recording
@@ -118,7 +119,7 @@ def check_alignment(ops_paths, ops_paths_green, nplanes):
 
     fig = plt.figure(figsize=(12,12))
 
-    for ipl in range(nplanes):
+    for ipl in range(nplanes)[:3]:
         ops = np.load(ops_paths[ipl], allow_pickle=True).item()
         ops_green = np.load(ops_paths_green[ipl], allow_pickle=True).item()
         plt.subplot(nplanes, 4, 1 + ipl*4)
@@ -173,7 +174,7 @@ def overlap_with_green(s2p_green, ops_paths, ops_paths_green, nplanes):
 
         np.save(ops_paths_green[ipl], opsg)
         np.save(redcell_paths_green[ipl], redstats)
-        combined(str(s2p_green));
+    #combined(str(s2p_green));
 
 
 # Example usage
