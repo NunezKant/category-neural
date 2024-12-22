@@ -20,12 +20,13 @@ def choose_path(title):
     root = tk.Tk()
     root.withdraw()  # Hide the root window
     folder_path = filedialog.askdirectory(title=title)
-    print("Selected Directory:", folder_path)
     return folder_path
 
 def path_two_channels():
-    red_path = choose_path("Choose the red channel folder")
-    green_path = choose_path("Choose the green channel folder")
+    red_path = choose_path("Choose the red channel TIF folder")
+    print("RED CHANNEL: selected Directory:", red_path)
+    green_path = choose_path("Choose the green channel SUITE2P folder")
+    print("GREEN CHANNEL: selected Directory:", green_path)
     s2p_green = Path(green_path)
     s2p_red = Path(red_path)
     return s2p_green, s2p_red
@@ -119,7 +120,7 @@ def check_alignment(ops_paths, ops_paths_green, nplanes):
 
     fig = plt.figure(figsize=(12,12))
 
-    for ipl in range(nplanes)[:3]:
+    for ipl in range(nplanes):
         ops = np.load(ops_paths[ipl], allow_pickle=True).item()
         ops_green = np.load(ops_paths_green[ipl], allow_pickle=True).item()
         plt.subplot(nplanes, 4, 1 + ipl*4)
@@ -176,11 +177,24 @@ def overlap_with_green(s2p_green, ops_paths, ops_paths_green, nplanes):
         np.save(redcell_paths_green[ipl], redstats)
     #combined(str(s2p_green));
 
+def get_redcells(s2p_green):
+    root = s2p_green
+    isredcell = np.zeros((0,2))
+    ops = np.load(
+        os.path.join(root, "plane0", "ops.npy"), allow_pickle=True
+    ).item()
+    for n in range(ops["nplanes"]):
+        redcell0 = np.load(os.path.join(root, "plane%d" % n, "redcell.npy"), allow_pickle=True
+    )
+        isredcell = np.concatenate((isredcell, redcell0), axis=0)
+    print(isredcell.shape)
+    return isredcell
+    
+
 
 # Example usage
 if __name__ == "__main__":
     s2p_green, s2p_red = path_two_channels()
     ops = tiffs_to_binary(s2p_red)
     ops_paths, ops_paths_green, nplanes = align_to_green(ops, s2p_green)
-    check_alignment(ops_paths, ops_paths_green, nplanes)
     overlap_with_green(s2p_green, ops_paths, ops_paths_green, nplanes)

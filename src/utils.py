@@ -6,7 +6,7 @@ import sys
 from scipy import io
 import pickle
 import tkinter as tk
-sys.path.insert(0, r"C:\Users\labadmin\Documents\suite2p")
+#sys.path.insert(0, r"C:\Users\labadmin\Documents\suite2p")
 sys.path.insert(0, r"C:\Users\labadmin\Documents\rastermap")
 from sklearn.decomposition import PCA
 import numpy as np
@@ -1333,14 +1333,14 @@ def load_mouse(name: str, date: str, block: str, data_path: str = "Z:/data/PROC"
     file = f"{name}_{date}_{block}.pkl"
     file_pth = full_pth.joinpath(file)
     if file_pth.is_file() == False:
-        print("*************************************")
-        print("Model object does not exist in path:")
-        print(f"{full_pth}")
-        print("Creating new mouse object ...")
+        #print("*************************************")
+        #print("Model object does not exist in path:")
+        #print(f"{full_pth}")
+        #print("Creating new mouse object ...")
         mouse = build_mouse(name , date, block, data_path, **kwargs)
-        print("*************************************")
-        print("mouse object created with the following attributes:")
-        print(properties(mouse))
+        #print("*************************************")
+        #print("mouse object created with the following attributes:")
+        #print(properties(mouse))
         return mouse
     else:
         print(f"Loading mouse object from {full_pth}")
@@ -1349,18 +1349,18 @@ def load_mouse(name: str, date: str, block: str, data_path: str = "Z:/data/PROC"
             #mouse = objectify(mouse)
             print("Existing mouse object has the following attributes:")
             print(properties(mouse))
-            print("*************************************")
-            inp = input("You want to load the saved object? (Y/N)")
-            if inp.lower() == "y":
-                print("Mouse object loaded from local path")
-                return mouse
-            else:
-                print("Creating new mouse object ...")
-                mouse = build_mouse(name , date, block, data_path, **kwargs)
-                print("*************************************")
-                print("mouse object created with the following attributes:")
-                print(properties(mouse))
-                return mouse
+            #print("*************************************")
+            #inp = input("You want to load the saved object? (Y/N)")
+            #if inp.lower() == "y":
+            #print("Mouse object loaded from local path")
+            return mouse
+            #else:
+            #    print("Creating new mouse object ...")
+            #    mouse = build_mouse(name , date, block, data_path, **kwargs)
+            #    print("*************************************")
+            #    print("mouse object created with the following attributes:")
+            #    print(properties(mouse))
+            #    return mouse
 
 def save_mouse(MouseObject: object, compressed = True, n_comps: int = 1000, mdl_path: str = "C:/Users/labadmin/Documents/models/mouseobj"):
     name = MouseObject.name
@@ -1757,7 +1757,7 @@ def filterneurons(MouseObject: object, layer: int = 1, trial_type: bool = False,
     print(f"NN prefering rewarded trials: {prefer_r.sum()}, NN prefering non-rewarded trials: {prefer_nr.sum()}")
     return prefer_r, prefer_nr, area_layer_neurons
 
-def compute_dprime(MouseObject, discrimination_region: tuple = (150,250), corridor_length: int = 400, nogray: bool = False, concatenate: bool = False):
+def compute_dprime(MouseObject, discrimination_region: tuple = (150,250), corridor_length: int = 400, nogray: bool = False, concatenate: bool = False, remove_mean: bool = False):
 
     """
     Calculate dprime for a given mouse object
@@ -1798,6 +1798,16 @@ def compute_dprime(MouseObject, discrimination_region: tuple = (150,250), corrid
         no_gray = no_gray[:,:,discrimination_region[0]:discrimination_region[1]].mean(2, keepdims=True)
         r1 = no_gray[:, train_trial_r, :]
         r2 = no_gray[:, train_trial_nr, :]
+    else:
+        response = MouseObject.interp_spks[:,:,discrimination_region[0]:discrimination_region[1]].mean(2, keepdims=True)
+        r1 = response[:, train_trial_r]
+        r2 = response[:, train_trial_nr]
+
+    if remove_mean:
+        response = MouseObject.interp_spks - MouseObject.interp_spks.mean(1, keepdims=True)
+        response = response[:,:,discrimination_region[0]:discrimination_region[1]].mean(2, keepdims=True)
+        r1 = response[:, train_trial_r]
+        r2 = response[:, train_trial_nr]
     else:
         response = MouseObject.interp_spks[:,:,discrimination_region[0]:discrimination_region[1]].mean(2, keepdims=True)
         r1 = response[:, train_trial_r]
@@ -1869,13 +1879,57 @@ def filter_neurons(MouseObject, area: str = 'all', plane: int = 1, tsh: float = 
     print(f"NN prefering rewarded neurons: {prefer_r.sum()}, NN prefering non-rewarded neurons: {prefer_nr.sum()}")
     return prefer_r, prefer_nr, area_layer_neurons
 
-def get_trials_with_licks(MouseObject, lick_window=(150,250), trialtype: str = 'rewarded'):
+def get_trials_with_licks(MouseObject, lick_window=(150,250), trialtype: str = 'rewarded', onlytest = False):
     licksdf = get_lick_df(MouseObject, drop_last_trial=True)
     trial_no = get_trialno_bytype(MouseObject.frameselector)
-    trial_no = trial_no[trialtype]
+    if onlytest & (trialtype in ['rewarded', 'non rewarded']):
+        trial_no = trial_no[trialtype][1::2]
+    else:
+        trial_no = trial_no[trialtype]
     licks = licksdf.query(f'trial_type == "{trialtype}"')
     licks = licks[licks['flag']!=1]
     trials_w_licks = licks.query(f'distance >= {lick_window[0]} and distance < {lick_window[1]}')['trial'].unique().astype(int)
     trials_w_licks = trials_w_licks - 1
+    if onlytest & (trialtype in ['rewarded', 'non rewarded']):
+        trials_w_licks = np.intersect1d(trials_w_licks, trial_no)
     trials_wo_licks = trial_no[np.isin(trial_no, trials_w_licks, invert=True)]
     return trials_w_licks, trials_wo_licks
+
+def get_lick_rates(m):
+    """
+    Get lick rates for each trial and each position in the corridor
+
+    Parameters
+    ----------
+    m : Mouse object
+
+    Returns
+    -------
+    rate_df : DataFrame
+        DataFrame containing the lick rate for each trial and each position in the corridor
+    lick_rate : array (n_trials, distance)
+        Array containing the lick rate for each trial and each position in the corridor
+    """
+    licks_df = get_lick_df(m)
+    n_trials = licks_df['trial'].astype(int).max()
+    licks_df = licks_df.query("flag == 0")
+    licks_df = licks_df.assign(dtime = licks_df['seconds_in_session'].astype(int))
+    licks_df = licks_df.assign(rate = licks_df.groupby('dtime')['dtime'].transform('count'))
+    licks_df = licks_df.assign(rdistance = np.floor(licks_df['distance'].astype(int)))
+    rate_df = licks_df[['rdistance', 'rate', "trial", 'trial_type']]
+    lick_rate = np.zeros((n_trials,400))
+    for i in range(n_trials):
+        pos = rate_df.query(f"trial == {i+1}")['rdistance'].unique().astype(int)
+        for p in pos:
+            r = rate_df.query(f"trial == {i+1} & rdistance == {p}")['rate'].mean()
+            lick_rate[i,p] = r
+    return rate_df, lick_rate
+
+def get_dp_thresholds(train_dp, tsh):
+    if tsh > 1: # in the case we want to use a percentile
+        pstv_tsh = np.percentile(train_dp, tsh) #positive threshold
+        ngtv_tsh = np.percentile(train_dp, 100-tsh)
+    else: # in the case we want to use a fixed value (needs to be a number lower than 1)
+        pstv_tsh = tsh
+        ngtv_tsh = -tsh
+    return pstv_tsh, ngtv_tsh
