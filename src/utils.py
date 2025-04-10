@@ -661,7 +661,7 @@ def superneuron_toneurons(isort_vect,clust_idxs,spn_binsize):
     selected_neurons = isort_vect[clust_idxs[0]*spn_binsize:(clust_idxs[1]+1)*spn_binsize]
     return selected_neurons
 
-def interp_spks_by_corridorlength(Mouse_spks, FrameSelector, z = True, corridor_length=150):
+def interp_spks_by_corridorlength(Mouse_spks, FrameSelector, z = True, corridor_length=400, subsample_factor = None):
     """
     Interpolate the spks by corridor length
 
@@ -719,9 +719,15 @@ def interp_spks_by_corridorlength(Mouse_spks, FrameSelector, z = True, corridor_
     dist_interp = (distance + (corridor_length * (trials-1)))
     print(f"interpolating {spks.shape[0]} neurons, {spks.shape[1]} frames to")
     print(f"the vector of distance with shape: {dist_interp.shape}")
-    x_new = np.linspace(0, corridor_length*ntrials, (corridor_length*ntrials))
+    if subsample_factor is not None:
+        x_new = np.linspace(0, corridor_length*ntrials, (corridor_length*ntrials)//subsample_factor)
+    else:
+        x_new = np.linspace(0, corridor_length*ntrials, (corridor_length*ntrials))
     spks_interp = interp1d(dist_interp, spks, kind='linear', fill_value="extrapolate")(x_new)
-    spks_interp_reshaped = spks_interp.reshape(spks.shape[0],ntrials,corridor_length)
+    if subsample_factor is not None:
+        spks_interp_reshaped = spks_interp.reshape(spks.shape[0],ntrials,corridor_length//subsample_factor)
+    else:
+        spks_interp_reshaped = spks_interp.reshape(spks.shape[0],ntrials,corridor_length)
     print(f"neurons: {spks_interp_reshaped.shape[0]}, trials: {spks_interp_reshaped.shape[1]}, corridor length: {spks_interp_reshaped.shape[2]}")
     if len(np.where(np.isnan(spks_interp_reshaped))[0]) != 0:
         print("Warning: There are NaNs in the interpolated spks")
