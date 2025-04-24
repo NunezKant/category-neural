@@ -184,8 +184,8 @@ def get_redcells(s2p_green):
         os.path.join(root, "plane0", "ops.npy"), allow_pickle=True
     ).item()
     for n in range(ops["nplanes"]):
-        redcell0 = np.load(os.path.join(root, "plane%d" % n, "redcell.npy"), allow_pickle=True
-    )
+        redcell0 = np.load(os.path.join(root, "plane%d" % n, "redcells.npy"), allow_pickle=True
+    ) #redcells.npy is the output from red intensity ratio, redcell is the output from nn detection
         isredcell = np.concatenate((isredcell, redcell0), axis=0)
     print(isredcell.shape)
     return isredcell
