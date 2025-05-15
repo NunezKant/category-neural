@@ -1939,3 +1939,32 @@ def get_dp_thresholds(train_dp, tsh):
         pstv_tsh = tsh
         ngtv_tsh = -tsh
     return pstv_tsh, ngtv_tsh
+
+def significance(pval):
+    if  pval >= .05:
+        sig = ''
+    elif pval < .05 and pval >= .01:
+        sig = '*'
+    elif pval < .01 and pval >= .001:
+        sig = '**'
+    elif pval < .001 and pval >= .0001:
+        sig = '***'
+    else:
+        sig = '****'
+    return sig
+
+def build_correct_dicts(m, lick_window=(150,250), onlytest=False):
+    """
+    Build dictionaries of correct and incorrect trials for each trial type.
+    """
+    correct_dict = {}
+    incorrect_dict = {}
+    for ttype in ["rewarded", "non rewarded", "rewarded test", "non rewarded test"]:
+        t_licks, t_nolicks = get_trials_with_licks(m, lick_window=lick_window, trialtype=ttype, onlytest=onlytest)
+        if ttype in ["rewarded", "rewarded test"]:
+            correct_dict[ttype] = t_licks
+            incorrect_dict[ttype] = t_nolicks
+        if ttype in ["non rewarded", "non rewarded test"]:
+            correct_dict[ttype] = t_nolicks
+            incorrect_dict[ttype] = t_licks
+    return correct_dict, incorrect_dict
