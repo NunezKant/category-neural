@@ -8,14 +8,18 @@ from sklearn.metrics import roc_auc_score, accuracy_score
 import matplotlib.pyplot as plt
 import seaborn as sns
 
-def load_behav_data(mouse):
+def load_behav_data(mouse, delta=True):
     name, date, blk = mouse.name, mouse.datexp, mouse.blk
     speed = np.load(f"../data/{name}/{date}/{blk}/speed_interp.npy")
     motion = np.load(f"../data/{name}/{date}/{blk}/motion_energy_corridor.npy")
     pupil = np.load(f"../data/{name}/{date}/{blk}/pupil_area_corridor.npy")
     lick_rate = np.load(f"../data/notz/{name}/{date}/{blk}/lick_rate.npy")
-    delta_motion = ((np.expand_dims(motion[:,0],axis=1) - motion) / (np.expand_dims(motion[:,0],axis=1))) * 100
-    delta_pupil = ((np.expand_dims(pupil[:,0],axis=1) - pupil) / (np.expand_dims(pupil[:,0],axis=1))) * 100
+    if delta==True:
+        delta_motion = ((motion - np.expand_dims(motion[:,0],axis=1)) / (np.expand_dims(motion[:,0],axis=1))) * 100
+        delta_pupil = ((pupil - np.expand_dims(pupil[:,0],axis=1)) / (np.expand_dims(pupil[:,0],axis=1))) * 100
+    else:
+        delta_motion = motion
+        delta_pupil = pupil
     return speed, lick_rate, delta_motion, delta_pupil
 
 def causal_exponential_filter(x, ew=0.1):

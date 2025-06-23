@@ -1059,7 +1059,7 @@ class Mouse:
             print("Suite2p options created at: self.ops")
             print("---------------------------")
 
-    def get_timestamps(self, intertrial_distance=100, verbose=False):
+    def get_timestamps(self, intertrial_distance=100, opt_tlag=None, verbose=False):
         """
         Creates the timestamps of behavior in terms of frames
 
@@ -1126,6 +1126,7 @@ class Mouse:
         # get the reward delivery as frame numbers
         treward = self._timeline["RewardInfo"][1]
         frame_reward = interp1d(tframes, np.arange(1, nframes + 1), fill_value="extrapolate")(treward)
+
 
         timestamps = {
             "trial_frames": trial_frames,
@@ -1273,6 +1274,7 @@ def load_mouse(name: str, date: str, block: str, data_path: str = "Z:/data/PROC"
             - load_retinotopy: Boolena, if True loads the retinotopy data
             - ret_path: str, path to the retinotopy data
             - dual_plane: Boolean, if True loads the dual plane data
+            - opt_tlag: int, optional, if specified, adds the tlag to spks
         Returns:
         -------
         mouse : Mouse
@@ -1328,6 +1330,8 @@ def load_mouse(name: str, date: str, block: str, data_path: str = "Z:/data/PROC"
                 print(f"Loading retinotopy data from {rtpy_file}")
                 for file in np.load(rtpy_file, allow_pickle = True).files:
                     exec(f"mouse.{file} = np.load(rtpy_file, allow_pickle = True)['{file}']")
+        if ('opt_tlag' in kwargs):
+            mouse._spks = np.roll(mouse._spks, -int(kwargs['opt_tlag']), axis=1) #opt_lag comes from retinotopy
         return mouse
 
 
@@ -1367,6 +1371,21 @@ def load_mouse(name: str, date: str, block: str, data_path: str = "Z:/data/PROC"
             #    print("mouse object created with the following attributes:")
             #    print(properties(mouse))
             #    return mouse
+
+def get_tmic(mouse: Mouse):
+    try:
+        # Gets the time for each neural frame
+        frames_time = mouse._data_var[0]
+        ixx = (frames_time[:-1] > 2.5) * (frames_time[1:] < 2.5)
+        iframes = np.argwhere(ixx).flatten()
+        isamp = np.argwhere(mouse._data_var[1] > 1).flatten()
+        ts = mouse._data_var[1][isamp]
+        tframes = interp1d(isamp, ts)(iframes)
+    except NameError:
+            print(
+                "data_var or _timeline not loaded, make sure to load them first by self.load_behav()"
+            )
+    return tframes
 
 def save_mouse(MouseObject: object, compressed = True, n_comps: int = 1000, mdl_path: str = "C:/Users/labadmin/Documents/models/mouseobj"):
     name = MouseObject.name
