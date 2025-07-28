@@ -13,7 +13,7 @@ def load_behav_data(mouse, delta=True):
     speed = np.load(f"../data/{name}/{date}/{blk}/speed_interp.npy")
     motion = np.load(f"../data/{name}/{date}/{blk}/motion_energy_corridor.npy")
     pupil = np.load(f"../data/{name}/{date}/{blk}/pupil_area_corridor.npy")
-    lick_rate = np.load(f"../data/notz/{name}/{date}/{blk}/lick_rate.npy")
+    lick_rate = np.load(f"../data/{name}/{date}/{blk}/lick_rate.npy")
     if delta==True:
         delta_motion = ((motion - np.expand_dims(motion[:,0],axis=1)) / (np.expand_dims(motion[:,0],axis=1))) * 100
         delta_pupil = ((pupil - np.expand_dims(pupil[:,0],axis=1)) / (np.expand_dims(pupil[:,0],axis=1))) * 100

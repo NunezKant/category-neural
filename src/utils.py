@@ -1987,3 +1987,63 @@ def build_correct_dicts(m, lick_window=(150,250), onlytest=False):
             correct_dict[ttype] = t_nolicks
             incorrect_dict[ttype] = t_licks
     return correct_dict, incorrect_dict
+
+def get_lick_df_legacy(MouseObject, drop_last_trial=True):
+    if "TX" in MouseObject.name:
+        df = pd.DataFrame(MouseObject._timeline["Licks"].T, columns=["trial", "distance","alpha","is_rewarded","time", "flag"])
+    else:
+        df = pd.DataFrame(MouseObject._timeline["Licks"].T, columns=["trial", "distance","alpha","is_rewarded","time", "flag", "istest"])
+    df["datetime"] = pd.to_datetime(
+        df["time"].apply(
+            lambda x: datetime.fromordinal(int(x))
+            + timedelta(days=x % 1)
+            - timedelta(days=366)
+        )
+    )
+    df = df.assign(distance = df["distance"]*10)
+    df = df.assign(date=df["datetime"].dt.date)
+    df = df.assign(hour_min_sec=df["datetime"].dt.time)
+    df = df.assign(seconds_in_session=(df["datetime"] - df["datetime"][0]).dt.total_seconds())
+    if drop_last_trial:
+        n_trials = df.trial.unique()[-2].astype(int)
+        df = df.loc[df.trial != df.trial.max()]
+    else:
+        n_trials = df.trial.unique()[-1].astype(int)
+    isrewarded = MouseObject._timeline['TrialRewardStrct'].flatten()[:n_trials]
+    isnew = MouseObject._timeline['TrialNewTextureStrct'].flatten()[:n_trials]
+    trial_type , _ = get_trial_categories(isrewarded, isnew)
+    for ix, ttype in enumerate(trial_type):
+        df.loc[df.trial == ix+1, "trial_type"] = ttype
+    df.drop(["time","datetime","is_rewarded","alpha"], axis=1, inplace=True)
+    return df
+
+def proportion_licks(MouseObject, lick_window=(150,250), n_trials=None):
+    '''
+    returns a dictionary with the proportion of licks in a given window per each trial type
+
+    Parameters
+    ----------
+    MouseObject : Mouse object
+        Mouse object with loaded behavior
+    lick_window : tuple, optional
+        position window in which to count licks, by default (45,110)
+    '''
+    df = get_lick_df_legacy(MouseObject, drop_last_trial=True)
+    if n_trials is None:
+        n_trials = int(df.trial.max())
+        cond = (df.distance >= lick_window[0]) & (df.distance <= lick_window[1])
+    else:
+        n_trials = n_trials
+        cond = (df.distance >= lick_window[0]) & (df.distance <= lick_window[1]) & (df.trial <= n_trials)
+    isrewarded = MouseObject._timeline['TrialRewardStrct'].flatten()[:n_trials]
+    isnew = MouseObject._timeline['TrialNewTextureStrct'].flatten()[:n_trials]
+    df = df.loc[df.flag != 1]
+    prop_dict = {}
+    df = df.loc[cond]
+    _ , counts = get_trial_categories(isrewarded, isnew)
+    for item in counts.items():
+        if item[1] != 0:
+            subdf = df.query(f"trial_type == '{item[0]}'")
+            licks_in_trialtype = len(subdf.loc[:,'trial'].unique())
+            prop_dict[item[0]] = licks_in_trialtype / item[1]
+    return prop_dict

@@ -156,7 +156,7 @@ def overlap_with_green(s2p_green, ops_paths, ops_paths_green, nplanes):
 
     stat_paths_green = [str(s2p_green / f"plane{ipl}" / "stat.npy") 
                     for ipl in range(nplanes)]
-    redcell_paths_green = [str(s2p_green / f"plane{ipl}" / "redcell.npy") 
+    redcell_paths_green = [str(s2p_green / f"plane{ipl}" / "redcells.npy") 
                     for ipl in range(nplanes)]
 
     for ipl, ops_path in enumerate(ops_paths):
