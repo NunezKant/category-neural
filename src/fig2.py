@@ -55,7 +55,7 @@ def plot_cds(day_response, ttype, area, ctype, ax, references=True):
     ax : matplotlib.axes.Axes
         The axes on which to plot the data.
     """
-    trial_type_palette = ['tab:green', 'tab:red', 'tab:cyan', 'tab:orange']
+    trial_type_palette = ['#0072B2', '#D55E00', '#56B4E9', '#E69F00']
     nmice, ntrial_types, nareas, ncelltypes, corridor_length = day_response.shape
     mean_response = np.mean(day_response, axis=0)
     sem_response = sem(day_response, axis=0)
@@ -285,3 +285,57 @@ def add_panel_label(ax, label, x=0.01, y=0.99, **kwargs):
     curr_fig = plt.gcf()
     figure_coord = curr_fig.transFigure.inverted().transform(display_coord)
     print("Figure-relative coordinates:", figure_coord)
+
+def plot_gi_comparison_wcontrol(first_gi, second_gi, control_gi, ax):
+    """
+    Plot the GI comparison between the first and last training sessions.
+    Parameters
+    ----------
+    gis_sess : np.ndarray
+        The GI data for the first and last training sessions. Shape: (sess*day, areas, ctypes)
+    ax : matplotlib.axes.Axes
+        The axes on which to plot the data.
+    """
+    from scipy.stats import ttest_rel, sem
+    colors = ["#a8d7bc",'#2ca25f',"#77b9aa"]
+    offset = [-0.1, 0.1, 0.3] # offset for the first, second and control GI
+    labels = ['all water day (before)', 'test day', 'all water day (after)']
+    for i_gi, gi in enumerate([first_gi, second_gi, control_gi]):
+        for a in range(4):
+            for ctp in range(2):
+                mean = np.mean(gi[:, a, ctp], axis=0)
+                sem_ = sem(gi[:, a, ctp], axis=0)
+                ax[ctp].scatter(a+offset[i_gi], mean, color=colors[i_gi], alpha=1, s=20)
+                ax[ctp].errorbar(a+offset[i_gi], mean, yerr=sem_, color=colors[i_gi], alpha=1)
+                ax[ctp].set_xticks(np.arange(4), ['V1', 'medial', 'lateral', 'anterior'])
+                #ax[ctp].axhline(y=0, color='gray', linestyle='--', alpha=0.2)
+                if ctp == 0:
+                    ax[ctp].set_ylabel('Invariance Index $(a.u.)$')
+                    ax[ctp].set_yticks([0,.25,.5,.75, 1, 1.25])
+                    ax[ctp].set_ylim(0, 1.3)
+    ax[0].text(0.05, .92, "all water day (before)", ha='left', color=colors[0], transform=ax[0].transAxes)
+    ax[0].text(0.05, .86, "test day (matched)", ha='left', color=colors[1],transform=ax[0].transAxes)
+    ax[0].text(0.05, .8, "all water day (after)", ha='left', color=colors[2], transform=ax[0].transAxes)
+    from matplotlib.lines import Line2D
+    for a in range(4):
+        for ctp in range(2):
+            day_one_r = first_gi[:, a, ctp]
+            day_two_r = second_gi[:, a, ctp]
+            control_r = control_gi[:, a, ctp]
+            t, p = ttest_rel(day_two_r, day_one_r)
+            p_t = significance(p)
+            if p<.05:
+                ax[ctp].text(a, .75, p_t, ha='center', va='center', color='k', fontsize=15, transform=ax[ctp].transData)
+                # a line between one category and the other
+                
+                line = Line2D([a-.1, a+.1], [.75, .75], color='k', linewidth=1, alpha=1)
+                ax[ctp].add_line(line)
+            t, p = ttest_rel(control_r, day_one_r)
+            p_t = significance(p)
+            if p<.05:
+                ax[ctp].text(a+.1, .9, p_t, ha='center', va='center', color='k', fontsize=15, transform=ax[ctp].transData)
+                # a line between one category and the other
+                line = Line2D([a-.1, a+.3], [.9, .9], color='k', linewidth=1, alpha=1)
+                ax[ctp].add_line(line)
+            for m in range(first_gi.shape[0]):
+                ax[ctp].plot([a-.1, a+.1], [day_one_r[m], day_two_r[m]], color='k', linewidth=.5, alpha=0.4)

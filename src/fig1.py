@@ -1,7 +1,9 @@
 import numpy as np
 import matplotlib.pyplot as plt
 import pandas as pd
+from src import utils
 from scipy.stats import ttest_rel, sem
+from datetime import datetime, timedelta
 
 
 def compute_gi(avgs_coding_dirs, pos):
@@ -107,7 +109,7 @@ def plot_gi_comparison_wcontrol(first_gi, second_gi, control_gi, ax):
         The axes on which to plot the data.
     """
     from scipy.stats import ttest_rel, sem
-    colors = ["#b1afcf",'#756bb1',"#9691c7"]
+    colors = ["#a8d7bc",'#2ca25f',"#77b9aa"]
     offset = [-0.1, 0.1, 0.3] # offset for the first, second and control GI
     labels = ['first day', 'last day (behavior matched)', 'last day (all trials)']
     for i_gi, gi in enumerate([first_gi, second_gi, control_gi]):
@@ -122,9 +124,9 @@ def plot_gi_comparison_wcontrol(first_gi, second_gi, control_gi, ax):
                 if ctp == 0:
                     ax[ctp].set_ylabel('Invariance Index $(a.u.)$')
                     ax[ctp].set_yticks([0,.25,.5,.75, 1, 1.25])
-    ax[0].text(0.05, .92, "first day", ha='left', color=colors[0], transform=ax[0].transAxes, fontsize=10)
-    ax[0].text(0.05, .86, "last day (matched)", ha='left', color=colors[1],transform=ax[0].transAxes, fontsize=10)
-    ax[0].text(0.05, .8, "last day (all trials)", ha='left', color=colors[2], transform=ax[0].transAxes, fontsize=10)
+    ax[0].text(0.05, .92, "first day", ha='left', color=colors[0], transform=ax[0].transAxes)
+    ax[0].text(0.05, .86, "test day (matched)", ha='left', color=colors[1],transform=ax[0].transAxes)
+    ax[0].text(0.05, .8, "test day (all trials)", ha='left', color=colors[2], transform=ax[0].transAxes)
 
     for a in range(4):
         for ctp in range(2):
@@ -178,7 +180,7 @@ def plot_cumulative_gi(ax, gis_first_bin, gis_last_bin, a, i, errorbars=True, xl
     gis_last_bin_sem = sem(gis_last_bin, axis=1)
     nbins = gis_last_bin_mean.shape[0]
     xrange = np.arange(nbins)
-    cmap = ['#1b9e77','#d95f02','#7570b3','#e7298a']
+    cmap = ['#66CCEE','#AA3377','#EE6677','#CCBB44']
     areas = ["V1", "medial", "lateral", "anterior"]
     if errorbars:
         ax.errorbar(xrange, gis_last_bin_mean[:,a,i], yerr=gis_last_bin_sem[:,a,i], linewidth=1, capsize=1, color=cmap[a], linestyle="None")
@@ -198,12 +200,12 @@ def plot_cumulative_gi(ax, gis_first_bin, gis_last_bin, a, i, errorbars=True, xl
                         color=cmap[a], alpha=0.2)
     if xlabel is not None:
         ax.set_xlabel(xlabel)
-    if title is not None:
-        ax.set_title(areas[a], loc='center')
+    if title:
+        ax.set_title(areas[a], loc='left', color=cmap[a], fontsize=10)
     #if legend:
     #    ax.text(nbins-1 + .2, gis_last_bin_mean[-1,a,i], "last day (matched)", ha='left', va='center')
     #    ax.text(nbins-1 + .2, gis_first_bin_mean[-1,a,i], "first day", ha='left', va='center')
-    ax.text(0.05, 0.9, areas[a], ha='left', va='center', color=cmap[a], transform=ax.transAxes)
+    #ax.text(0.05, 0.9, areas[a], ha='left', va='center', color=cmap[a], transform=ax.transAxes)
     ax.set_ylim(0,.9)
     ax.set_yticks([0,.25,.5,.75], ["0", ".25", ".50", ".75"])
 
@@ -217,16 +219,16 @@ def lick_averages(df, ax, lines=True, alpha=1, offset=0, ylabel = True, **kwargs
         #print(np.round(res,4))
     if lines:
         for i, row in data.iterrows():
-            ax.plot([1, 2], [row['rewarded'], row['non rewarded']], '-', alpha=0.1, color='gray')
-            ax.plot([3, 4], [row['rewarded test'], row['non rewarded test']], '-', alpha=0.1, color='gray')
-    cmap = {"rewarded": 'tab:green', "non rewarded": 'tab:red', "rewarded test": 'tab:cyan', "non rewarded test": 'tab:orange'}
+            ax.plot([1, 2], [row['rewarded'], row['non rewarded']], '-', alpha=0.1, color='gray', zorder=0)
+            ax.plot([3, 4], [row['rewarded test'], row['non rewarded test']], '-', alpha=0.1, color='gray', zorder=0)
+    cmap = {"rewarded": '#0072B2', "non rewarded": '#D55E00', "rewarded test": '#56B4E9', "non rewarded test": '#E69F00'}
     for i, column in enumerate(['rewarded', 'non rewarded', 'rewarded test', 'non rewarded test'], start=1):
         mean = data[column].mean()
         median = data[column].median()
         c = cmap[column]
-        ax.errorbar(i+offset, mean, yerr=stats.sem(data[column]), color=c, alpha=alpha, zorder=0)
-        ax.plot(i+offset, median, '_', color=c, markersize=13, markeredgewidth=2, alpha=alpha, zorder=1)
-        ax.plot(i+offset, mean, '8', color=c, markersize=5, markerfacecolor='white',  alpha=alpha, zorder=0)
+        ax.errorbar(i+offset, mean, yerr=stats.sem(data[column]), color=c, alpha=alpha, zorder=1)
+        ax.plot(i+offset, median, '_', color=c, markersize=13, markeredgewidth=2, alpha=alpha, zorder=2)
+        ax.plot(i+offset, mean, '8', color=c, markersize=5, markerfacecolor='white',  alpha=alpha, zorder=1)
     from matplotlib.lines import Line2D
     comparisons = [(0,1), (2,3)]
     xcoor = []
@@ -237,8 +239,9 @@ def lick_averages(df, ax, lines=True, alpha=1, offset=0, ylabel = True, **kwargs
         if res.iloc[comp[0], comp[1]] < 0.05:
             xcoor.append([comp[0]+1, comp[1]+1])
             ycoor.append(yval)
-            yval += 0.03
+            #yval += 0.03
             pvals.append(significance(res.iloc[comp[0], comp[1]]))
+            print(res.iloc[comp[0], comp[1]])
     #xcoor = [[1,4], [1,3], [1,2], [2,3], [3,4]]
     #ycoor = [1.14, 1.09, 1.04, 1.02, 1]
     fig = plt.gcf()
@@ -337,10 +340,10 @@ def betas_plot(overall_betas, ax, legend=False):
 def plot_catvsbehav(behav_cov_catA, behav_cov_catB, ylabel, xlabel, ax, legend=False):
     cat_a = behav_cov_catA
     cat_b = behav_cov_catB
-    ax.plot(cat_a.mean(0), color='tab:green', linestyle='-', label='Category A')
-    ax.fill_between(np.arange(400), cat_a.mean(0)-sem(cat_a, axis=0), cat_a.mean(0)+sem(cat_a, axis=0), alpha=0.3, color='tab:green')
-    ax.plot(cat_b.mean(0), color='tab:red', linestyle='-', label='Category B')
-    ax.fill_between(np.arange(400), cat_b.mean(0)-sem(cat_b, axis=0), cat_b.mean(0)+sem(cat_b, axis=0), alpha=0.3, color='tab:red')
+    ax.plot(cat_a.mean(0), color='#0072B2', linestyle='-', label='Category A')
+    ax.fill_between(np.arange(400), cat_a.mean(0)-sem(cat_a, axis=0), cat_a.mean(0)+sem(cat_a, axis=0), alpha=0.3, color='#0072B2')
+    ax.plot(cat_b.mean(0), color='#D55E00', linestyle='-', label='Category B')
+    ax.fill_between(np.arange(400), cat_b.mean(0)-sem(cat_b, axis=0), cat_b.mean(0)+sem(cat_b, axis=0), alpha=0.3, color='#D55E00')
     ax.set_ylabel(ylabel, labelpad=2)
     ax.set_xticks([0, 150, 300, 400], ['0', '150', '300', '400'])    
     if legend:
@@ -397,7 +400,7 @@ def plot_cds(day_response, ttype, area, ctype, ax, references=True):
     ax : matplotlib.axes.Axes
         The axes on which to plot the data.
     """
-    trial_type_palette = ['tab:green', 'tab:red', 'tab:cyan', 'tab:orange']
+    trial_type_palette = ['#0072B2', '#D55E00', '#56B4E9', '#E69F00']
     nmice, ntrial_types, nareas, ncelltypes, corridor_length = day_response.shape
     mean_response = np.mean(day_response, axis=0)
     sem_response = sem(day_response, axis=0)
@@ -415,8 +418,8 @@ def plot_matched_trials(overall_prob, catA_trials, catB_trials, ax, ax2):
     histB, _ = np.histogram(overall_prob[catB_trials, 3], bins=bins, density=False)
     bin_centers = (bins[:-1] + bins[1:]) / 2
 
-    ax.bar(bin_centers, histA, width=np.diff(bins), alpha=0.4, color='tab:green', label='Category A')
-    ax.bar(bin_centers, histB, width=np.diff(bins), alpha=0.4, color='tab:red', label='Category B')
+    ax.bar(bin_centers, histA, width=np.diff(bins), alpha=0.4, color='#0072B2', label='Category A')
+    ax.bar(bin_centers, histB, width=np.diff(bins), alpha=0.4, color='#D55E00', label='Category B')
 
     # Highlight overlap with hatching
     overlap = np.minimum(histA, histB)
@@ -444,3 +447,133 @@ def plot_matched_trials(overall_prob, catA_trials, catB_trials, ax, ax2):
     ax.set_xlabel('Prob (Cat A)')
     ax2.set_xlabel('Prob (Cat A)')
     ax.set_ylabel('Trials')
+
+def licksraster(MouseObject, ax, legend=True, ylabel=True):
+    import seaborn as sns
+    """
+    Plot the lick data.
+
+    Parameters
+    ----------
+    MouseObject : Mouse object
+        Mouse object containing the data
+    first_lick : bool
+        If True, plot the first lick distribution over trials.
+    fsize : tuple
+        Figure size.
+    lick_counter_lim : tuple
+        Limits for the lick counter.
+
+    Returns
+    -------
+    fig : figure
+        Figure of lick data.
+    """
+    opt_dict = {
+        "rewarded": "#0072B2",
+        "non rewarded": "#D55E00",
+        "rewarded test": "#56B4E9",
+        "non rewarded test": "#E69F00",
+    }
+    #pct_axis = fig.add_subplot(grid[-2:, 5:])
+    lick = get_lick_df(MouseObject, drop_last_trial=True)
+    n_trials = int(lick.trial.max())
+    isrewarded = MouseObject._timeline['TrialRewardStrct'].flatten()[:n_trials]
+    isnew = MouseObject._timeline['TrialNewTextureStrct'].flatten()[:n_trials]
+    trial_type , counts = utils.get_trial_categories(isrewarded, isnew)
+    for key, value in counts.items():
+        lick.loc[np.where(lick["trial_type"] == key)[0], "Weight"] = value
+    lick = lick[lick["flag"] != 1]
+    lick = lick.iloc[::2]
+    category_number = len(np.unique(trial_type))
+    if category_number == 4:
+        categories = ["rewarded", "non rewarded", "rewarded test", "non rewarded test"]
+    elif category_number == 2:
+        categories = ["rewarded", "non rewarded"]
+        
+
+    for category in categories:
+        position = lick[lick["trial_type"] == category]["distance"]
+        trial = lick[lick["trial_type"] == category]["trial"]
+        if category in ["rewarded", "non rewarded"]:
+            ax.scatter(
+                position,
+                trial,
+                marker="o",
+                label=category,
+                alpha=0.2,
+                c = opt_dict[category],
+                s=5, 
+                rasterized=True
+            )
+        elif category == "rewarded test":
+            ax.scatter(
+                position,
+                trial,
+                marker="X",
+                alpha=0.2,
+                label=category,
+                c = opt_dict[category],
+                s=5,
+                rasterized=True
+            )
+        else:
+            ax.scatter(
+                position,
+                trial,
+                marker="X",
+                alpha=0.2,
+                label=category,
+                c = opt_dict[category],
+                s=5,
+                rasterized=True
+            )
+
+    ax.set_xlabel("lick position $(cm)$")
+    if ylabel:
+        ax.set_ylabel("trial")
+    ax.set_xlim(0, lick["distance"].max() + 10)
+    #init_text = lick["distance"].max() -30
+    i = 0
+    change_dict = {'rewarded': 'prot A', 'non rewarded': 'prot B', 'rewarded test': 'non prot A', 'non rewarded test': 'non prot B'}
+    if legend:
+        for category in categories:
+            ax.text(310,327-i,change_dict[category],color=opt_dict[category])
+            i+=31
+    ax.set_ylim(0, n_trials+30)
+    ax.set_xticks([0, 150, 250, 400])
+    ax.fill_betweenx([0, n_trials+19], [150],[250], color='#0072B2', alpha=0.3)
+    ax.vlines(300,0, n_trials+19, color='k', linestyle='--', alpha = 0.3)
+    #add text for reward region
+    #ax.text(145, n_trials+30, "reward \n region", color='#0072B2')
+    ax.tick_params(axis='both', which='major')
+    sns.despine()
+
+def get_lick_df(MouseObject, drop_last_trial=True):
+    if "TX" in MouseObject.name:
+        df = pd.DataFrame(MouseObject._timeline["Licks"].T, columns=["trial", "distance","alpha","is_rewarded","time", "flag"])
+    else:
+        df = pd.DataFrame(MouseObject._timeline["Licks"].T, columns=["trial", "distance","alpha","is_rewarded","time", "flag", "istest"])
+    df["datetime"] = pd.to_datetime(
+        df["time"].apply(
+            lambda x: datetime.fromordinal(int(x))
+            + timedelta(days=x % 1)
+            - timedelta(days=366)
+        )
+    )
+    df = df.assign(distance = df["distance"]*10)
+    df = df.assign(date=df["datetime"].dt.date)
+    df = df.assign(hour_min_sec=df["datetime"].dt.time)
+    df = df.assign(seconds_in_session=(df["datetime"] - df["datetime"][0]).dt.total_seconds())
+    if drop_last_trial:
+        n_trials = df.trial.unique()[-2].astype(int)
+        df = df.loc[df.trial != df.trial.max()]
+    else:
+        n_trials = df.trial.unique()[-1].astype(int)
+    isrewarded = MouseObject._timeline['TrialRewardStrct'].flatten()[:n_trials]
+    isnew = MouseObject._timeline['TrialNewTextureStrct'].flatten()[:n_trials]
+    trial_type , _ = utils.get_trial_categories(isrewarded, isnew)
+    for ix, ttype in enumerate(trial_type):
+        df.loc[df.trial == ix+1, "trial_type"] = ttype
+    df.drop(["time","datetime","is_rewarded","alpha"], axis=1, inplace=True)
+    return df
