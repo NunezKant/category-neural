@@ -38,6 +38,16 @@ def get_sessions():
     VG24.append({'mname': 'VG24', 'datexp': '2025_06_26', 'blk':'2','session': 'first training', 'round_id': 1})
     VG24.append({'mname': 'VG24', 'datexp': '2025_07_10', 'blk':'2','session': 'last training', 'round_id': 1})
     VG24.append({'mname': 'VG24', 'datexp': '2025_07_14', 'blk':'2','session': 'all rewarded after', 'round_id': 1})
-    all_sessions = VG11 + VG14 + VG15 + VG24
+    VG33 = []
+    VG33.append({'mname': 'VG33', 'datexp': '2025_09_30', 'blk':'2','session': 'all rewarded before', 'round_id': 1})
+    VG33.append({'mname': 'VG33', 'datexp': '2025_10_01', 'blk':'2','session': 'first training', 'round_id': 1})
+    VG33.append({'mname': 'VG33', 'datexp': '2025_10_09', 'blk':'3','session': 'last training', 'round_id': 1})
+    VG33.append({'mname': 'VG33', 'datexp': '2025_10_10', 'blk':'2','session': 'all rewarded after', 'round_id': 1})
+    VG34 = []
+    VG34.append({'mname': 'VG34', 'datexp': '2025_09_30', 'blk':'3','session': 'all rewarded before', 'round_id': 1})
+    VG34.append({'mname': 'VG34', 'datexp': '2025_10_01', 'blk':'2','session': 'first training', 'round_id': 1})
+    VG34.append({'mname': 'VG34', 'datexp': '2025_10_10', 'blk':'3','session': 'last training', 'round_id': 1})
+    VG34.append({'mname': 'VG34', 'datexp': '2025_10_13', 'blk':'4','session': 'all rewarded after', 'round_id': 1})
+    all_sessions = VG11 + VG14 + VG15 + VG24 + VG33 + VG34
     all_sessions = pd.DataFrame(all_sessions)
     return all_sessions

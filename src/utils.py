@@ -838,16 +838,19 @@ class Mouse:
         ops = np.load(
             os.path.join(root, "suite2p", "plane0", "ops.npy"), allow_pickle=True
         ).item()
-
+        nrecording_rois = len(list(Path(root).joinpath('suite2p').glob('plane*/'))) ## add to all my other code >:( 
+        print('number of recording planes: %d'%nrecording_rois)
         if return_iscell == True:
             is_cell = np.zeros((0,2))
-            ops["nplanes"] =  20
+            #ops["nplanes"] =  20
         if dual_plane:
-            tlags = np.linspace(0.2, -0.8, ops["nplanes"] // 2 + 1)[:-1]
+            #tlags = np.linspace(0.2, -0.8, ops["nplanes"] // 2 + 1)[:-1]
+            tlags = np.linspace(0.2, -0.8, nrecording_rois // 2 + 1)[:-1]
             tlags = np.hstack((tlags, tlags))
             tlags = tlags.flatten()
         else:
-            tlags = np.linspace(0.2, -0.8, ops["nplanes"] + 1)[:-1]
+            tlags = np.linspace(0.2, -0.8, nrecording_rois + 1)[:-1]
+            #tlags = np.linspace(0.2, -0.8, ops["nplanes"] + 1)[:-1]
         print(f"planes: {tlags.shape[0]}")
 
         spks = np.zeros((0, ops["nframes"]), np.float32)
@@ -857,7 +860,8 @@ class Mouse:
         iplane = np.zeros((0,))
         xpos, ypos = np.zeros((0,)), np.zeros((0,))
 
-        for n in tqdm(range(ops["nplanes"])):
+        #for n in tqdm(range(ops["nplanes"])):
+        for n in tqdm(range(nrecording_rois)):
             ops = np.load(
                 os.path.join(root, "suite2p", "plane%d" % n, "ops.npy"),
                 allow_pickle=True,

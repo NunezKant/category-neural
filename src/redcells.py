@@ -6,15 +6,15 @@ import tkinter as tk
 from tkinter import filedialog
 from suite2p import default_ops
 from suite2p.io import tiff
-import imp
-imp.reload(tiff)
-import json
 from suite2p.registration import register
+import importlib
+#importlib.reload(tiff)
+import json
+
 import contextlib 
 from suite2p import io
 from natsort import natsorted 
-import imp
-imp.reload(register)
+#importlib.reload(register)
 
 def choose_path(title):
     root = tk.Tk()
@@ -151,8 +151,10 @@ def check_alignment(ops_paths, ops_paths_green, nplanes):
 def overlap_with_green(s2p_green, ops_paths, ops_paths_green, nplanes):
     from suite2p.io.save import combined
     from suite2p.detection import chan2detect, anatomical
-    imp.reload(anatomical)
-    imp.reload(chan2detect)
+    importlib.reload(anatomical)
+    importlib.reload(chan2detect)
+    import os
+    import stat as st 
 
     stat_paths_green = [str(s2p_green / f"plane{ipl}" / "stat.npy") 
                     for ipl in range(nplanes)]
@@ -172,8 +174,7 @@ def overlap_with_green(s2p_green, ops_paths, ops_paths_green, nplanes):
         opsg["meanImg_chan2"] = ops["meanImg_chan2"]
         opsg["meanImg_chan2_corrected"] = ops["meanImg_chan2_corrected"]
         opsg["nchannels"] = 2
-
-        np.save(ops_paths_green[ipl], opsg)
+        np.save(ops_paths_green[ipl], opsg) #HERE
         np.save(redcell_paths_green[ipl], redstats)
     #combined(str(s2p_green));
 
@@ -183,7 +184,9 @@ def get_redcells(s2p_green):
     ops = np.load(
         os.path.join(root, "plane0", "ops.npy"), allow_pickle=True
     ).item()
-    for n in range(ops["nplanes"]):
+    nrecording_rois = len(list(Path(root).glob('plane*/')))
+    print("nrecording_rois:", nrecording_rois)
+    for n in range(nrecording_rois):
         redcell0 = np.load(os.path.join(root, "plane%d" % n, "redcells.npy"), allow_pickle=True
     ) #redcells.npy is the output from red intensity ratio, redcell is the output from nn detection
         isredcell = np.concatenate((isredcell, redcell0), axis=0)
