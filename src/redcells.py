@@ -166,15 +166,17 @@ def overlap_with_green(s2p_green, ops_paths, ops_paths_green, nplanes):
         ops = np.load(ops_path, allow_pickle=True).item()
         stat = np.load(stat_paths_green[ipl], allow_pickle=True)
 
-        ops, redstats = chan2detect.detect(ops, stat)
-
+        ops, redstats = chan2detect.detect(ops, stat) ##  chan2detect.detect(ops, stat) 
+        
         np.save(ops_path, ops)
         
         opsg = np.load(ops_paths_green[ipl], allow_pickle=True).item()
         opsg["meanImg_chan2"] = ops["meanImg_chan2"]
         opsg["meanImg_chan2_corrected"] = ops["meanImg_chan2_corrected"]
         opsg["nchannels"] = 2
-        np.save(ops_paths_green[ipl], opsg) #HERE
+        temp_path = ops_paths_green[ipl].replace("ops.npy","ops_temp.npy")
+        np.save(temp_path, opsg) #HERE
+        os.replace(temp_path, ops_paths_green[ipl])
         np.save(redcell_paths_green[ipl], redstats)
     #combined(str(s2p_green));
 

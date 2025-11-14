@@ -151,8 +151,13 @@ def baselining(ops, tlag, F):
         Baselined deconvolved fluorescence
     """
     #F = preprocess(F, Fneu, ops["win_baseline"], ops["sig_baseline"], ops["fs"])
-    F = dcnv.preprocess(F, ops['baseline'], ops['win_baseline'], ops['sig_baseline'],
+    try:
+        F = dcnv.preprocess(F, ops['baseline'], ops['win_baseline'], ops['sig_baseline'],
                        ops['fs'], ops['prctile_baseline'])
+    except:
+        #print("New suite2p dcnv preprocess")
+        F = dcnv.preprocess(F, ops["dcnv_preprocess"]['baseline'], ops["dcnv_preprocess"]['win_baseline'], ops["dcnv_preprocess"]['sig_baseline'],
+                ops['fs'], ops["dcnv_preprocess"]['prctile_baseline'])
     if tlag < 0:
         F[:, 1:] = (1 + tlag) * F[:, 1:] + (-tlag) * F[:, :-1]
     else:
@@ -510,7 +515,8 @@ def get_frametypes(MouseObject, color=True):
             ttypebyframes[ix] = cat_color[0]
     df = pd.DataFrame(ttypebyframes, columns=["trial_type"])
     df.replace("NaN", np.nan, inplace=True)
-    filled = df.fillna(method="ffill")
+    #filled = df.fillna(method="ffill")
+    filled = df.ffill()
     trial_type_byframe = filled.values.flatten()
     return trial_type_byframe
 
@@ -530,11 +536,13 @@ def get_frameselector(MouseObject, intertrial_distance = 100, effective_frames =
             "distance": MouseObject._timestamps["distance"][
                 : MouseObject._spks.shape[1]
             ],
-            "reward_delivery": np.nan,
+            #"reward_delivery": np.nan,
+            "reward_delivery": pd.NA,
             "intertrial": False,
             "ordinal_time": MouseObject._timestamps["frame_times"][: MouseObject._spks.shape[1]],
         }
     )
+    FrameSelector["reward_delivery"] = FrameSelector["reward_delivery"].astype("string") ## added to avoid warning and future error
     FrameSelector.loc[reward_delivery_frame, "reward_delivery"] = "delivery"
     rewarded_trials = FrameSelector.loc[FrameSelector["trial_type"] == "rewarded"][
         "trial_no"
