@@ -23,7 +23,7 @@ import pandas as pd
 from datetime import datetime, timedelta
 from sklearn.decomposition import TruncatedSVD
 from src import udcnv
-
+import types
 ##### SUITE2P FUNCTIONS #####
 
 
@@ -1229,6 +1229,35 @@ def objectify(objdict):
         setattr(mouse, key, objdict[key])
     return mouse
 
+
+def load_with_pandas_shims(pkl_path):
+    """
+    Load an old pickle created with pandas <2 by providing missing classes/modules.
+    """
+    # shim: pandas.core.indexes.numeric
+    mod_num = types.ModuleType("pandas.core.indexes.numeric")
+    class NumericIndex(pd.Index): pass
+    class Int64Index(pd.Index): pass
+    class UInt64Index(pd.Index): pass
+    class Float64Index(pd.Index): pass
+    mod_num.NumericIndex = NumericIndex
+    mod_num.Int64Index = Int64Index
+    mod_num.UInt64Index = UInt64Index
+    mod_num.Float64Index = Float64Index
+    sys.modules["pandas.core.indexes.numeric"] = mod_num
+
+    # shim: pandas.core.indexes.range
+    mod_rng = types.ModuleType("pandas.core.indexes.range")
+    mod_rng.RangeIndex = pd.RangeIndex
+    sys.modules["pandas.core.indexes.range"] = mod_rng
+
+    # shim: pandas.core.indexes.base (ensure Index path exists if referenced)
+    mod_base = types.ModuleType("pandas.core.indexes.base")
+    mod_base.Index = pd.Index
+    sys.modules["pandas.core.indexes.base"] = mod_base
+
+    with open(pkl_path, "rb") as f:
+        return pickle.load(f)
 
 def load_mouse(name: str, date: str, block: str, data_path: str = "Z:/data/PROC",  mdl_path: str = "C:/Users/labadmin/Documents/models/mouseobj", ret_path = "D:/retinotopy/aligned_xy/behav", **kwargs):
     """

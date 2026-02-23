@@ -98,7 +98,7 @@ def plot_gi_comparison(gis_sess, n_sess, labels, ax):
     ax[-1].text(1.1, .75, labels[1], ha='left', color='k',transform=ax[-1].transAxes)
     plt.tight_layout()
 
-def plot_gi_comparison_wcontrol(first_gi, second_gi, control_gi, ax):
+def plot_gi_comparison_wcontrol(first_gi, second_gi, control_gi, ax , sig_line=1, sig_line_control=1.15, ylabel="invariance index $(a.u.)$", labels = ["first day", "test day (matched)", "test day (all trials)"], alternative=('greater', 'greater'), lines = True):
     """
     Plot the GI comparison between the first and last training sessions.
     Parameters
@@ -111,46 +111,46 @@ def plot_gi_comparison_wcontrol(first_gi, second_gi, control_gi, ax):
     from scipy.stats import ttest_rel, sem
     colors = ["#a8d7bc",'#2ca25f',"#77b9aa"]
     offset = [-0.1, 0.1, 0.3] # offset for the first, second and control GI
-    labels = ['first day', 'last day (behavior matched)', 'last day (all trials)']
     for i_gi, gi in enumerate([first_gi, second_gi, control_gi]):
         for a in range(4):
             for ctp in range(2):
-                mean = np.mean(gi[:, a, ctp], axis=0)
-                sem_ = sem(gi[:, a, ctp], axis=0)
-                ax[ctp].scatter(a+offset[i_gi], mean, color=colors[i_gi], alpha=1, s=20)
+                mean = np.nanmean(gi[:, a, ctp], axis=0)
+                sem_ = sem(gi[:, a, ctp], axis=0, nan_policy='omit')
+                ax[ctp].scatter(a+offset[i_gi], mean, color=colors[i_gi], alpha=1, s=15)
                 ax[ctp].errorbar(a+offset[i_gi], mean, yerr=sem_, color=colors[i_gi], alpha=1)
                 ax[ctp].set_xticks(np.arange(4), ['V1', 'medial', 'lateral', 'anterior'])
-                ax[ctp].axhline(y=0, color='gray', linestyle='--', alpha=0.2)
+                #ax[ctp].axhline(y=0, color='gray', linestyle='..', alpha=0.1)
                 if ctp == 0:
-                    ax[ctp].set_ylabel('Invariance Index $(a.u.)$')
-                    ax[ctp].set_yticks([0,.25,.5,.75, 1, 1.25])
-    ax[0].text(0.05, .92, "first day", ha='left', color=colors[0], transform=ax[0].transAxes)
-    ax[0].text(0.05, .86, "test day (matched)", ha='left', color=colors[1],transform=ax[0].transAxes)
-    ax[0].text(0.05, .8, "test day (all trials)", ha='left', color=colors[2], transform=ax[0].transAxes)
+                    ax[ctp].set_ylabel(ylabel)
+                    #ax[ctp].set_yticks([0,.25,.5,.75, 1, 1.25])
+    ax[1].text(1.05, .92, labels[0], ha='left', color=colors[0], transform=ax[1].transAxes)
+    ax[1].text(1.05, .86, labels[1], ha='left', color=colors[1],transform=ax[1].transAxes)
+    ax[1].text(1.05, .8, labels[2], ha='left', color=colors[2], transform=ax[1].transAxes)
 
     for a in range(4):
         for ctp in range(2):
             day_one_r = first_gi[:, a, ctp]
             day_two_r = second_gi[:, a, ctp]
             control_r = control_gi[:, a, ctp]
-            t, p = ttest_rel(day_two_r, day_one_r, alternative='greater')
+            t, p = ttest_rel(day_two_r, day_one_r, alternative=alternative[0], nan_policy='omit')
             p_t = significance(p)
             if p<.05:
-                ax[ctp].text(a, 1, p_t, ha='center', va='center', color='k', fontsize=15, transform=ax[ctp].transData)
+                ax[ctp].text(a, sig_line, p_t, ha='center', va='center', color='k', fontsize=10, transform=ax[ctp].transData)
                 # a line between one category and the other
                 from matplotlib.lines import Line2D
-                line = Line2D([a-.1, a+.1], [1, 1], color='k', linewidth=1, alpha=1)
+                line = Line2D([a-.1, a+.1], [sig_line, sig_line], color='k', linewidth=1, alpha=1)
                 ax[ctp].add_line(line)
-            t, p = ttest_rel(control_r, day_one_r, alternative='greater')
+            t, p = ttest_rel(control_r, day_one_r, alternative=alternative[1], nan_policy='omit')
             p_t = significance(p)
             if p<.05:
-                ax[ctp].text(a+.1, 1.15, p_t, ha='center', va='center', color='k', fontsize=15, transform=ax[ctp].transData)
+                ax[ctp].text(a+.1, sig_line_control, p_t, ha='center', va='center', color='k', fontsize=10, transform=ax[ctp].transData)
                 # a line between one category and the other
                 from matplotlib.lines import Line2D
-                line = Line2D([a-.1, a+.3], [1.15, 1.15], color='k', linewidth=1, alpha=1)
+                line = Line2D([a-.1, a+.3], [sig_line_control, sig_line_control], color='k', linewidth=1, alpha=1)
                 ax[ctp].add_line(line)
-            for m in range(first_gi.shape[0]):
-                ax[ctp].plot([a-.1, a+.1], [day_one_r[m], day_two_r[m]], color='k', linewidth=.5, alpha=0.4)
+            if lines:
+                for m in range(first_gi.shape[0]):
+                    ax[ctp].plot([a-.1, a+.1], [day_one_r[m], day_two_r[m]], color='k', linewidth=.3, alpha=0.2, zorder=0)
 
 def plot_cumulative_gi(ax, gis_first_bin, gis_last_bin, a, i, errorbars=True, xlabel=None, ylabel=None, title=None, legend=False):
     """
@@ -314,7 +314,7 @@ def betas_plot(overall_betas, ax, legend=False):
     # get 6 colors from Dark2 color palette
     from matplotlib import cm
     cmap = cm.get_cmap('Set2', 6)
-    reg_names = ["Intercept", "Lick rate", "Speed", "Acceleration", "$\Delta$ Pupil", "$\Delta$ Motion"]
+    reg_names = ["Intercept", "Lick rate", "Speed", "Acceleration", r"$\Delta$ Pupil", r"$\Delta$ Motion"]
     corridor_length = 400
     bsize = 25
     n_bins = corridor_length // bsize
@@ -404,13 +404,13 @@ def plot_cds(day_response, ttype, area, ctype, ax, references=True):
     nmice, ntrial_types, nareas, ncelltypes, corridor_length = day_response.shape
     mean_response = np.mean(day_response, axis=0)
     sem_response = sem(day_response, axis=0)
-    ax.plot(mean_response[ttype, area, ctype], color=trial_type_palette[ttype], linewidth=1)
+    ax.plot(mean_response[ttype, area, ctype], color=trial_type_palette[ttype], linewidth=.5)
     ax.fill_between(np.arange(corridor_length), mean_response[ttype, area, ctype] - sem_response[ttype, area, ctype],
                                 mean_response[ttype, area, ctype] + sem_response[ttype, area, ctype],
-                                color=trial_type_palette[ttype], alpha=0.2)
+                                color=trial_type_palette[ttype], edgecolor="none", alpha=0.3)
     if references:
-        ax.axvline(x=150, color='gray', linestyle='--', alpha=0.2)
-        ax.axvline(x=300, color='gray', linestyle='--', alpha=0.2)
+        ax.axvline(x=150, color='gray', linestyle='--', alpha=0.2, linewidth=.4)
+        ax.axvline(x=300, color='gray', linestyle='--', alpha=0.2, linewidth=.4)
 
 def plot_matched_trials(overall_prob, catA_trials, catB_trials, ax, ax2):
     bins = np.linspace(0, 1, 11)

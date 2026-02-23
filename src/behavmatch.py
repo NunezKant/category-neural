@@ -7,13 +7,15 @@ from sklearn.preprocessing import StandardScaler
 from sklearn.metrics import roc_auc_score, accuracy_score
 import matplotlib.pyplot as plt
 import seaborn as sns
+from pathlib import Path
 
 def load_behav_data(mouse, delta=True):
+    object_path = Path(r"D:\mouseobj")
     name, date, blk = mouse.name, mouse.datexp, mouse.blk
-    speed = np.load(f"../data/{name}/{date}/{blk}/speed_interp.npy")
-    motion = np.load(f"../data/{name}/{date}/{blk}/motion_energy_corridor.npy")
-    pupil = np.load(f"../data/{name}/{date}/{blk}/pupil_area_corridor.npy")
-    lick_rate = np.load(f"../data/{name}/{date}/{blk}/lick_rate.npy")
+    speed = np.load(object_path.joinpath(name, date, blk, "speed_interp.npy"))
+    motion = np.load(object_path.joinpath(name, date, blk, "motion_energy_corridor.npy"))
+    pupil = np.load(object_path.joinpath(name, date, blk, "pupil_area_corridor.npy"))
+    lick_rate = np.load(object_path.joinpath(name, date, blk, "lick_rate.npy"))
     if delta==True:
         delta_motion = ((motion - np.expand_dims(motion[:,0],axis=1)) / (np.expand_dims(motion[:,0],axis=1))) * 100
         delta_pupil = ((pupil - np.expand_dims(pupil[:,0],axis=1)) / (np.expand_dims(pupil[:,0],axis=1))) * 100
@@ -135,6 +137,22 @@ def plot_performance_and_betas(auc_scores, accuracies, betas, names, ax, cumulat
     
     plt.tight_layout()
     plt.show()
+
+def get_matched_trials(m , prob_pth):
+    cbin = 3 
+    protA = m.trial_dict["rewarded"]
+    protB = m.trial_dict["non rewarded"]
+    restA = m.trial_dict["rewarded test"]
+    restB =  m.trial_dict["non rewarded test"]
+    probs = np.load(prob_pth.joinpath("probs.npy"), allow_pickle=True)
+    prot_matched_trials = match_trials_by_prob_bins(probs, cbin, protA, protB, bins=np.linspace(0, 1, 11), random_state=0)
+    rest_matched_trials = match_trials_by_prob_bins(probs, cbin, restA, restB, bins=np.linspace(0, 1, 11), random_state=0)
+    m_rew = np.concatenate(prot_matched_trials[:,0]).astype(int)
+    m_nrew = np.concatenate(prot_matched_trials[:,1]).astype(int)
+    m_rew_test = np.concatenate(rest_matched_trials[:,0]).astype(int)
+    m_nrew_test = np.concatenate(rest_matched_trials[:,1]).astype(int)
+    return m_rew, m_nrew, m_rew_test, m_nrew_test
+
 
 def match_trials_by_prob_bins(prob, b, cond1, cond2, bins=np.linspace(0, 1, 11), random_state=0):
     """
