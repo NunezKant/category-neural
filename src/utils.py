@@ -1011,12 +1011,13 @@ class Mouse:
                 xpos0 += ops["dx"]
 
             if baseline:
-                F = np.load(os.path.join(root, "suite2p", "plane%d" % n, "F.npy"))
+                F0 = np.load(os.path.join(root, "suite2p", "plane%d" % n, "F.npy"))
                 Fneu = np.load(os.path.join(root, "suite2p", "plane%d" % n, "Fneu.npy"))
-                F = baselining(ops, tlags[n], F, Fneu)
-                spks0 = dcnv.oasis(F, ops["batch_size"], ops["tau"], ops["fs"])
+                F0 = F0 - 1*Fneu
+                F0 = baselining(ops, tlags[n], F0)
+                spks0 = dcnv.oasis(F0, ops["batch_size"], ops["tau"], ops["fs"])
                 if return_F:
-                    F_ret = np.concatenate((F_ret, F.astype("float32")), axis=0)
+                    F_ret = np.concatenate((F_ret, F0.astype("float32")), axis=0)
             else:
                 spks0 = np.load(
                     os.path.join(root, "suite2p", "plane%d" % n, "spks.npy"),
